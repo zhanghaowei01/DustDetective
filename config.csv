@@ -1,0 +1,19 @@
+modelPath,./model/lcb_dust_vgg16_finetune.hdf5
+classIndex,classLabel
+0,AA Glue
+1,Alumina
+2,Black Mask
+3,Fiber
+4,Glass Fiber
+5,IRCF Incoming NG
+6,IRCF Incoming NG(Coating)
+7,IRCF Incoming NG(Dig)
+8,IRCF Scrap
+9,Lens Incoming NG
+10,Lens scratch
+11,Not found
+12,Organic
+13,PP
+14,"SUS(Cr&Ni,GlueShape)"
+15,Skin
+16,VCM Base
