@@ -1,5 +1,7 @@
 import platform
+import shutil
 import sys
+import time
 
 from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import Qt, QThread, QEvent
@@ -63,11 +65,15 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.predict_thread.start()
 
         self.loadImg_.clicked.connect(self.image_load)
+        self.saveImg_.clicked.connect(self.image_save)
         self.clear_.clicked.connect(self.clear_all)
 
-        self.qpix_with_text = None
+        self.qpix_with_label = None
         self.qpix = None
+        self.qpix_with_all = None
+        self.qpix_with_proba = None
         self.addLabel_.stateChanged.connect(self.predict_thread.change_qpix)
+        self.rank5_acc.stateChanged.connect(self.predict_thread.change_qpix)
 
         self.probability = np.zeros([5, 2], dtype=np.str)
 
@@ -75,6 +81,9 @@ class MainWindow(QMainWindow, Ui_MainWindow):
         self.files_len = 0
         self.next_.clicked.connect(self.press_next)
         self.previous_.clicked.connect(self.press_previous)
+
+        self.img_save_list = None
+        self.file_list = []
 
         with tf.device('/cpu:0'):
             # load the pre-trained network
@@ -98,7 +107,7 @@ class MainWindow(QMainWindow, Ui_MainWindow):
     def clear_all(self):
         self.image_.setDisabled(True)
         self.qpix = None
-        self.qpix_with_text = None
+        self.qpix_with_label = None
         self.i = 0
 
     def image_load(self, event):
@@ -109,9 +118,27 @@ class MainWindow(QMainWindow, Ui_MainWindow):
                                                  "./",
                                                  "Image Files (*.jpg *.png);;All Files (*)")
         if ok:
+            files = [f.replace('\\', '/') for f in files]
             self.files_len = len(files)
+            self.img_save_list = np.zeros(self.files_len, dtype=object)
+            self.file_list = files
             self.predict_thread.predict(files)
             return files
+        else:
+            return False
+
+    def image_save(self, event):
+        dir = QFileDialog.getExistingDirectory(self,
+                                                 "Select image(s) save path",
+                                                 "./")
+        if len(dir) > 0:
+            for i, image in enumerate(self.img_save_list):
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                path = dir + '/' + self.file_list[i].split('/')[-1].split('.')[0] + '_marked.jpg'
+                if os.path.exists(path):
+                    os.remove(path)
+                cv2.imwrite(path, image)
+            return True
         else:
             return False
 
@@ -166,6 +193,9 @@ class Predict(QThread):
         self.preds_rank1_proba = preds.max(axis=1)
         self.preds_rank_all_proba = np.sort(preds, axis=1)[:, ::-1]  # from big to small
 
+        for i in range(len(self.imagePaths)):
+            self.load_img(i)
+
         self.load_img(0)
 
     def load_img(self, i):
@@ -183,8 +213,11 @@ class Predict(QThread):
         mainWindow.probability = np.transpose(np.vstack((rank_label, rank_proba)))
 
         proba = ""
+        proba_list = []
         for l, p in zip(rank_label, rank_proba):
-            proba += l + ', ' + '{:.3f}%'.format(p * 100) + os.linesep
+            data = l + ', ' + '{:.3f}%'.format(p * 100)
+            proba += data + os.linesep
+            proba_list.append(data)
 
         mainWindow.result_.setText(proba)
 
@@ -208,14 +241,32 @@ class Predict(QThread):
         except:
             pass
 
-        image_with_text = image.copy()
-        cv2.putText(image_with_text, "Label: %s" % classLabels[self.preds_rank1_label[i]], (10, 30),
+        image_with_label = image.copy()
+        cv2.putText(image_with_label, "Label: %s" % classLabels[self.preds_rank1_label[i]], (10, 30),
                     cv2.FONT_HERSHEY_TRIPLEX, 0.7, (0, 255, 0), 2)
 
-        mainWindow.qpix_with_text = mainWindow.img2qpix(image_with_text, fit_to=mainWindow.image_)
+        image_with_proba = image.copy()
+        for j in range(5):
+            cv2.putText(image_with_proba, proba_list[j], (10, image.shape[0] - 150 + 25 * j),
+                        cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 255, 0), 1)
+
+        image_with_all = image_with_label.copy()
+        for j in range(5):
+            cv2.putText(image_with_all, proba_list[j], (10, image.shape[0] - 150 + 25 * j),
+                        cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0, 255, 0), 1)
+
+        mainWindow.qpix_with_label = mainWindow.img2qpix(image_with_label, fit_to=mainWindow.image_)
+        mainWindow.qpix_with_proba = mainWindow.img2qpix(image_with_proba, fit_to=mainWindow.image_)
+        mainWindow.qpix_with_all = mainWindow.img2qpix(image_with_all, fit_to=mainWindow.image_)
         mainWindow.qpix = mainWindow.img2qpix(image, fit_to=mainWindow.image_)
 
+        self.image_label = image_with_label
+        self.image_proba = image_with_proba
+        self.image_all = image_with_all
+        self.image = image
+
         self.change_qpix()
+        self.save_img(i)
 
         if i < len(self.imagePaths) - 1:
             mainWindow.image_next_.setEnabled(True)
@@ -225,15 +276,32 @@ class Predict(QThread):
         else:
             mainWindow.image_next_.setDisabled(True)
 
-        # waiting for button press
-
     def change_qpix(self):
-        if mainWindow.qpix_with_text is not None and mainWindow.qpix is not None:
+        if mainWindow.qpix_with_label is not None and mainWindow.qpix is not None and mainWindow.qpix_with_all is not None:
             mainWindow.image_.setEnabled(True)
-            if mainWindow.addLabel_.isChecked():
-                mainWindow.image_.setPixmap(mainWindow.qpix_with_text)
+            if mainWindow.rank5_acc.isChecked() and mainWindow.addLabel_.isChecked():
+                pixmap = mainWindow.qpix_with_all
+            elif mainWindow.rank5_acc.isChecked():
+                pixmap = mainWindow.qpix_with_proba
+            elif mainWindow.addLabel_.isChecked():
+                pixmap = mainWindow.qpix_with_label
             else:
-                mainWindow.image_.setPixmap(mainWindow.qpix)
+                pixmap = mainWindow.qpix
+
+            mainWindow.image_.setPixmap(pixmap)
+
+    def save_img(self, index):
+        if mainWindow.rank5_acc.isChecked() and mainWindow.addLabel_.isChecked():
+            image = self.image_all
+        elif mainWindow.rank5_acc.isChecked():
+            image = self.image_proba
+        elif mainWindow.addLabel_.isChecked():
+            image = self.image_label
+        else:
+            image = self.image
+
+        mainWindow.img_save_list[index] = image
+
 
 # setup GUI
 app = QApplication(sys.argv)
