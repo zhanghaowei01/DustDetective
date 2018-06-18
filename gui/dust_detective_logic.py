@@ -1,9 +1,6 @@
 import platform
-import shutil
 import sys
-import time
 
-from PyQt5 import QtCore, QtGui
 from PyQt5.QtCore import Qt, QThread, QEvent
 from PyQt5.QtGui import QImage, QPixmap, QPalette
 from PyQt5.QtWidgets import QApplication, QMainWindow, QLabel, QFileDialog
@@ -14,11 +11,8 @@ from proc.preprocessing.imagetoarraypreprocessor import ImageToArrayPreprocessor
 from proc.preprocessing.preprocess import SimplePreprocessor
 from proc.datasets.dataset_loader import SimpleDatasetLoader
 from keras.models import load_model
-from imutils import paths
 import numpy as np
-import freetype
 import tensorflow as tf
-import argparse
 from PIL import Image, ImageDraw, ImageFont
 import cv2
 
