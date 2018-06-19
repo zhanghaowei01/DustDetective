@@ -1,5 +1,7 @@
 import platform
 import sys
+import cgitb
+cgitb.enable()  # Enable hidden errors and warnings, especially important for windows PYQT
 
 from PyQt5.QtCore import Qt, QThread, QEvent
 from PyQt5.QtGui import QImage, QPixmap, QPalette
@@ -19,9 +21,11 @@ import cv2
 # initialize the class labels
 classLabels = []
 
+linesep = '\n'
+
 # parse config
 cfg = open('config.csv', 'r').read()
-cfg = cfg.split(os.linesep)
+cfg = cfg.split(linesep)
 for c in cfg:
     if len(c) > 0:
         key, val = c.split(',', maxsplit=1)
@@ -210,7 +214,7 @@ class Predict(QThread):
         proba_list = []
         for l, p in zip(rank_label, rank_proba):
             data = l + ', ' + '{:.3f}%'.format(p * 100)
-            proba += data + os.linesep
+            proba += data + linesep
             proba_list.append(data)
 
         mainWindow.result_.setText(proba)

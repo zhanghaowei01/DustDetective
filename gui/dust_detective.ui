@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>DustDetective</string>
   </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>ico.ico</normaloff>ico.ico</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="verticalLayout" stretch="1,0,9">
     <item>
