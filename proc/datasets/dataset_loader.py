@@ -33,7 +33,7 @@ class SimpleDatasetLoader:
                 else:
                     continue
 
-            label = imagePath.split(os.path.altsep)[-2]
+            label = imagePath.split(os.path.sep)[-2]
 
             if self.preprocessors is not None:
                 # loop over the preprocessors and apply each to the image
